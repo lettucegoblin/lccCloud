@@ -1,10 +1,14 @@
 const express = require('express');
 const { spawn, exec } = require('child_process');
+const cors = require('cors');
 const os = require('os');
 
 const app = express();
 const port = process.env.PORT || 3000;
-
+app.use(cors({
+    origin: 'http://localhost:5173'  // This allows only requests from this origin
+    // or use '*' to allow all origins
+}));
 // Function to change permissions
 function changePermissions(filePath, mode) {
     exec(`chmod ${mode} ${filePath}`, (error, stdout, stderr) => {
@@ -34,26 +38,43 @@ app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
-app.post('/lcc', (req, res) => {
-    //const { arguments, data } = req.body;
-    
-
-    //const { arguments, data } = req.body;
+/*
+requestType: 'execute',
+data: {
+  fileName: 'helloworld.a',
+  aCode: textAreaContent
+}
+*/
+function executeLCC(fileName, aCode, res){
     //const lccProcess = spawn(lccCommand, arguments);
-    const lccProcess = spawn(lccCommand, ['helloworld.a']);
+    const lccProcess = spawn(lccCommand, [fileName]);
 
     //lccProcess.stdin.write(data);
     lccProcess.stdin.end();
 
     lccProcess.stdout.on('data', (output) => {
         // Handle the output from the lcc program
-        res.send(output.toString());
+        const outputData = output.toString();
+        const jsonData = { output: outputData };
+        res.json(jsonData);
     });
 
     lccProcess.stderr.on('data', (error) => {
         // Handle any errors from the lcc program
         res.status(500).send(error.toString());
     });
+}
+
+
+app.post('/lcc', (req, res) => {
+    const { requestType, data } = req.body;
+    if (requestType == 'execute') {
+        const { fileName, aCode } = data;
+        // Write the assembly code to a file
+        executeLCC();
+
+    }
+    
 });
 
 app.listen(port, () => {

@@ -1,11 +1,11 @@
 # Use Ubuntu 22.04 as the base image
-FROM ubuntu:22.04
+FROM node:slim
 
 # Install Node.js and other necessary system dependencies
-RUN apt-get update && apt-get install -y \
-    nodejs \
-    npm \
-    curl
+# RUN apt-get update && apt-get install -y \
+#     nodejs \
+#     npm \
+#     curl
 
 # Set the working directory in the container
 WORKDIR /app
