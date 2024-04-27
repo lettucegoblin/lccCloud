@@ -1,0 +1,4 @@
+*.bst
+*.lst
+*.e
+node_modules

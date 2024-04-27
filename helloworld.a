@@ -1,0 +1,7 @@
+    lea r0, hello
+    sout r0
+    halt
+
+
+hello: .string "hello world"
+
