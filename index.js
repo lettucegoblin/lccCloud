@@ -13,7 +13,7 @@ app.get('/', (req, res) => {
 app.post('/lcc', (req, res) => {
     //const { arguments, data } = req.body;
 
-    const lccProcess = spawn('./lcc.exe', ['a1test.a']); //arguments);
+    const lccProcess = spawn('./lcc.exe', ['helloworld.a']); //arguments);
 
     //lccProcess.stdin.write(data);
     lccProcess.stdin.end();
