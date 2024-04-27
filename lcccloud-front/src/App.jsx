@@ -1,9 +1,14 @@
 import { useState } from 'react'
 import './App.css'
 
+const defaultCodeString = `    mov r0, 5
+    dout r0
+    nl
+    halt`;
+
 function App() {
 
-  const [textAreaContent, setTextAreaContent] = useState('');
+  const [textAreaContent, setTextAreaContent] = useState(defaultCodeString);
   const [output, setOutput] = useState('');
   const [fileNameContent, setFileNameContent] = useState('test.a');
 
@@ -39,17 +44,15 @@ function App() {
       <input
         type="text"
         placeholder="test.a"
-        onChange={e => setFileNameContent(e.target.value)} />
+        onChange={e => setFileNameContent(e.target.value)} 
+        defaultValue={fileNameContent} />
       </div>
       <textarea
         id="lcc-cloud-ide"
         rows="10"
         style={{width: "24em"}}
         onChange={e => setTextAreaContent(e.target.value)}
-        defaultValue={`    mov r0, 5
-    dout r0
-    nl
-    halt`}
+        defaultValue={defaultCodeString}
       ></textarea>
       <section>
         <button id="run-btn" onClick={handleButtonClick}>Run</button>

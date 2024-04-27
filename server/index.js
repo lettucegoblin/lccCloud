@@ -45,7 +45,7 @@ data: {
   aCode: textAreaContent
 }
 */
-function executeLCC(fileName, aCode, res){
+function executeLCC(fileName, callback){
     //const lccProcess = spawn(lccCommand, arguments);
     const lccProcess = spawn(lccCommand, [fileName]);
 
@@ -54,9 +54,8 @@ function executeLCC(fileName, aCode, res){
 
     lccProcess.stdout.on('data', (output) => {
         // Handle the output from the lcc program
-        const outputData = output.toString();
-        const jsonData = { output: outputData };
-        res.json(jsonData);
+        callback(output.toString());
+        
     });
 
     lccProcess.stderr.on('data', (error) => {
@@ -65,14 +64,29 @@ function executeLCC(fileName, aCode, res){
     });
 }
 
+function writeAssemblyCodeToFile(fileName, aCode, callback) {
+    const fs = require('fs');
+    fs.writeFile(fileName, aCode, (error) => {
+        if (error) {
+            console.error(error);
+            return;
+        }
+        console.log('File written successfully');
+        callback();
+    });
+}
+
 
 app.post('/lcc', (req, res) => {
     const { requestType, data } = req.body;
     if (requestType == 'execute') {
         const { fileName, aCode } = data;
-        // Write the assembly code to a file
-        executeLCC();
-
+        writeAssemblyCodeToFile(fileName, aCode, () => {
+            executeLCC(fileName, (output) => {
+                const jsonData = { output: output };
+                res.json(jsonData);
+            });
+        });
     }
     
 });
