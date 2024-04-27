@@ -15,12 +15,16 @@ COPY . /app
 
 # Install Node.js dependencies
 RUN npm install
+RUN npm run client_install
+
+# Build the Node.js application
+RUN npm run build_client
 
 # Set permissions for the lcc binary
-RUN chmod 755 ./lcc
+RUN chmod 755 ./server/lcc
 
 # Expose the port the app runs on
 EXPOSE 3000
 
 # Command to run the app
-CMD ["node", "index.js"]
+CMD ["npm", "run", "server"]

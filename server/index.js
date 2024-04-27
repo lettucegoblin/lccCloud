@@ -1,12 +1,13 @@
 const express = require('express');
 const { spawn, exec } = require('child_process');
 const cors = require('cors');
+const path = require('path');
 const os = require('os');
 
 const app = express();
 const port = process.env.PORT || 3000;
 app.use(cors({
-    origin: 'http://localhost:5173'  // This allows only requests from this origin
+    origin: '*'  // This allows only requests from this origin
     // or use '*' to allow all origins
 }));
 // Function to change permissions
@@ -33,8 +34,9 @@ if (os.platform() === 'win32') {
 }
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dist')));
 
-app.get('/', (req, res) => {
+app.get('/test', (req, res) => {
     res.send('Hello World!');
 });
 

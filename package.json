@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server": "cd server && node index.js"
+    "server": "cd server && node index.js",
+    "client_install": "cd lcccloud-front && npm install",
+    "build_client_win": "cd lcccloud-front && npm run build && xcopy dist ..\\server\\dist /E /Y",
+    "build_client": "cd lcccloud-front && npm run build && cp -r dist ../server/dist"
   },
   "author": "",
   "license": "ISC",
