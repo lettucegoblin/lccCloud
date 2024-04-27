@@ -1,9 +1,32 @@
 const express = require('express');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const os = require('os');
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+// Function to change permissions
+function changePermissions(filePath, mode) {
+    exec(`chmod ${mode} ${filePath}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error: ${error.message}`);
+            return;
+        }
+        if (stderr) {
+            console.error(`Stderr: ${stderr}`);
+            return;
+        }
+        console.log(`Stdout: ${stdout}`);
+    });
+}
+
+let lccCommand;
+if (os.platform() === 'win32') {
+    lccCommand = './lcc.exe';
+} else {
+    lccCommand = './lcc';
+    changePermissions(lccCommand, '755'); // Changing permissions to 'rwxr-xr-x'
+}
 
 app.use(express.json());
 
@@ -13,12 +36,7 @@ app.get('/', (req, res) => {
 
 app.post('/lcc', (req, res) => {
     //const { arguments, data } = req.body;
-    let lccCommand;
-    if (os.platform() === 'win32') {
-        lccCommand = './lcc.exe';
-    } else {
-        lccCommand = './lcc';
-    }
+    
 
     //const { arguments, data } = req.body;
     //const lccProcess = spawn(lccCommand, arguments);
