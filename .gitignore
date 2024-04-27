@@ -1,4 +1,6 @@
 *.bst
 *.lst
 *.e
+*.a
+server/dist
 node_modules
