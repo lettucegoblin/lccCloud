@@ -1,8 +1,9 @@
 const express = require('express');
 const { spawn } = require('child_process');
+const os = require('os');
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 app.use(express.json());
 
@@ -12,8 +13,16 @@ app.get('/', (req, res) => {
 
 app.post('/lcc', (req, res) => {
     //const { arguments, data } = req.body;
+    let lccCommand;
+    if (os.platform() === 'win32') {
+        lccCommand = './lcc.exe';
+    } else {
+        lccCommand = './lcc';
+    }
 
-    const lccProcess = spawn('./lcc.exe', ['helloworld.a']); //arguments);
+    //const { arguments, data } = req.body;
+    //const lccProcess = spawn(lccCommand, arguments);
+    const lccProcess = spawn(lccCommand, ['helloworld.a']);
 
     //lccProcess.stdin.write(data);
     lccProcess.stdin.end();
