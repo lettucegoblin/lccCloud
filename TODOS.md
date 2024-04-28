@@ -7,15 +7,14 @@
 - [x] Add temporary notice that din/ain/hin/sin are not currently supported
 - [x] Temporarily prevent users from submitting blocking code (stdin)
 - [x] Make `run` button turn into `stop` button while mid-execution of the program
-- [ ] Add toasts with Toastify for buttery smooth notifications, oh yeah
-
-## Middle-Ware
-- [ ] Standardize the websockets API
+- [x] Add toasts with Toastify for buttery smooth notifications, oh yeah
 
 ## Server-Side
 - [x] Implement basic stdout
 - [x] Implement stdin w/ sockets
-- [ ] Fix race condition issue when running multiple programs in a row
+- [x] Fix race condition issue when running multiple programs in a row
+- [x] Standardize the websockets API
+- [ ] Sanitize outputs so they do not include ANSI escape sequences
 - [ ] Save and run files with hashed name
 - [ ] Simple mongoDB for home page with published gists if people made their thing public
 - [ ] Save files as gists to GitHub (see maria.cloud for reference)
