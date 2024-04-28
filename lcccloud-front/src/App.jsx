@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 
 const defaultCodeString = `    mov r0, 5
@@ -7,22 +9,33 @@ const defaultCodeString = `    mov r0, 5
     nl
     halt`;
 
-const demoBprogram = `    lea r0, hello
+const demoBprogram = `    lea r0, ask
+    sout r0
+    sin r0
+    lea r1, hi
+    sout r1
+    sout r0
+    lea r0, period
     sout r0
     nl
     halt
 
-hello:  .string "Hello World!"`;
+ask:  .string "What's your name? "
+hi:   .string "Hi, "
+period: .string "."`;
 
 function App() {
     const outputRef = useRef(null);
+    const inputRef = useRef(null);
     const socketRef = useRef(null);
+    const lastTokenTimeStamp = useRef(0);
+    const tokenTimeout = useRef(null);
     const [ideContent, setIdeContent] = useState(localStorage.getItem('ideContent') || defaultCodeString);
     const [terminalOutput, setTerminalOutput] = useState(localStorage.getItem('terminalOutput') || '');
     const [fileNameContent, setFileNameContent] = useState(localStorage.getItem('fileNameContent') || 'demoA.a');
     const [errorMessage, setErrorMessage] = useState("");
     const [userInput, setUserInput] = useState("");
-    const [runningProgram, setRunningProgram] = useState(false);
+    const runningProgramRef = useRef(false);
 
     useEffect(() => {
         outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -37,20 +50,33 @@ function App() {
     useEffect(() => {
         socketRef.current = io(import.meta.env.VITE_LCC_API);
 
-        socketRef.current.on('terminal-output', data => {
-            console.log(`LCC Running: ${data.lccRunning}`);
-            setRunningProgram(data.lccRunning);
-            setTerminalOutput(output => `${output}${data.tokenResponse}`);
+        socketRef.current.on('terminal-output', payload => {
+            runningProgramRef.current = payload.lccRunning;
+            setTerminalOutput(output => `${output}${payload.data}`);
+
+            clearTimeout(tokenTimeout.current);
+            
+            tokenTimeout.current = setTimeout(() => {
+                
+                if (runningProgramRef.current == true){
+                    toast.success("Terminal waiting for input...");
+                    inputRef.current.focus();
+                }
+            }, 500);
+            
         });
 
-        socketRef.current.on('terminate-lcc', data => {
-            console.log(`LCC Running: ${data.lccRunning}`);
-            setRunningProgram(false);
+        socketRef.current.on('terminate-lcc', payload => {
+            console.log(`LCC Running: ${payload.lccRunning}`);
+            runningProgramRef.current = payload.lccRunning;
+            toast.success("Program stopped");
         });
 
-        socketRef.current.on('error', data => {
-            setErrorMessage(`Error: ${data.data}`);
-            setRunningProgram(false);
+        socketRef.current.on('error', payload => { 
+            // TODO: Handle error
+            setErrorMessage(`Error: ${payload.data}`);
+            runningProgramRef.current = false;
+            toast.error(`Error: ${payload.data}`);
         });
 
         return () => {
@@ -76,7 +102,7 @@ function App() {
     }
 
     const handleRunStopButtonClick = () => {
-        if (!runningProgram) {
+        if (!runningProgramRef.current) {
             if (socketRef.current) {
                 socketRef.current.emit('execute', {
                     fileName: fileNameContent,
@@ -100,6 +126,7 @@ function App() {
 
     return (
         <section className="tc mr-auto ml-auto helvetica">
+            <ToastContainer />
             <h1 className="f2 fw9 ma0 pt3 pb2">LCC Cloud</h1>
             <section>
                 <button className="link pointer dim br-pill bn ph3 pv2 dib mr1" onClick={handleDemoABtnClick}>Load Demo A</button>
@@ -127,7 +154,7 @@ function App() {
                     <button
                         className="link pointer dim br-pill bn ph3 pv2 dib mr1"
                         onClick={handleRunStopButtonClick}>
-                        {runningProgram ? "Stop" : "Run"}
+                        {runningProgramRef.current ? "Stop" : "Run"}
                     </button>
                     <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleClearBtnClick}>Clear</button>
                 </section>
@@ -147,6 +174,7 @@ function App() {
                         value={userInput}
                         onChange={e => setUserInput(e.target.value)}
                         onKeyPress={handleUserInput}
+                        ref={inputRef}
                     />
                     <p className="ma0 pt2">{errorMessage}</p>
                 </section>

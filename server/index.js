@@ -18,7 +18,8 @@ const io = new socketIo.Server(server, {
 const port = process.env.PORT || 3000;
 const IS_WIN = os.platform() === 'win32';
 const SHELL = IS_WIN ? 'powershell.exe' : 'bash';
-const UNIQUE_MARKER = "CMD_DONE_MARKER";
+const CMD_START_MARKER = "CMD_START_MARKER";
+const CMD_DONE_MARKER = "CMD_DONE_MARKER";
 
 app.use(cors({ origin: '*' }))
     .use(express.json())
@@ -61,25 +62,45 @@ function writeCodeToFile(fileName, codeString, callback) {
 function executeLCC(socket, fileName) {
     // Execute your command within the terminal
     console.log('Executing command', socket.ptyTerminal.lccRunning, socket.ptyTerminal.killed);
-    if(!socket.ptyTerminal.lccRunning){
-        socket.ptyTerminal.lccRunning = true; 
-        socket.ptyTerminal.write(`${lccCommand} ${fileName} ${IS_WIN ? ';' : '&&'} echo ${UNIQUE_MARKER}\r`);
-           
+    if (!socket.ptyTerminal.lccRunning) {
+        socket.ptyTerminal.lccRunning = true;
+        socket.ptyTerminal.write(`echo ${CMD_START_MARKER}${IS_WIN ? ';' : '&&'}${lccCommand} ${fileName} ${IS_WIN ? ';' : '&&'} echo ${CMD_DONE_MARKER}\r`);
+
     }
 }
 
-function bindPtyTerminalWithSocket(socket){
-    
+function sendPayload(socket, endpoint, type, data) {
+    if (endpoint === 'terminal-output') {
+        console.log('Sending terminal output', type, JSON.stringify(data));
+        // check if 'echo CMD_DONE_MARKER' is present in the output
+        if (data.includes(CMD_START_MARKER)) {
+            console.log('Contains unique marker');
+            
+            return;
+        }
+        let escapeSequences = ["[1C", "[?25h", "[93me"];
+        data = data.replace(CMD_DONE_MARKER, ''); // Remove the marker from the output
+        data = data.replace(escapeSequences[0], " ");
+        data = data.replace(escapeSequences[1], " ");
+        data = data.replace(escapeSequences[2], " ");
+    }
+    socket.emit(endpoint, { 
+        type,
+        data,
+        lccRunning: socket.ptyTerminal.lccRunning
+    });
+}
 
+function bindPtyTerminalWithSocket(socket) {
     socket.ptyTerminal = pty.spawn(SHELL, [], {
-        name: 'xterm-color',
+        name: 'dumb',
         cols: 80,
         rows: 30,
         cwd: process.cwd(),
         env: process.env
     });
     socket.ptyTerminal.lccRunning = false;
-    socket.ptyTerminal.cleanup = function cleanup(){
+    socket.ptyTerminal.cleanup = function cleanup() {
         console.log('Cleaning up');
         if (socket.ptyTerminal.lccRunning) {
             socket.ptyTerminal.lccRunning = false;
@@ -100,40 +121,33 @@ function bindPtyTerminalWithSocket(socket){
 
     /* lccProcess bindings */
     socket.ptyTerminal.on('data', function (data) {
-        if(socket.processingData)
+        if (socket.processingData)
             return; // Skip the data processing if the previous data is still being processed
-        
+
         socket.processingData = true;
 
-        if(!socket.ptyTerminal.lccRunning || socket.ptyTerminal.killed) {
+        if (!socket.ptyTerminal.lccRunning || socket.ptyTerminal.killed) {
             socket.processingData = false;
             return;
         }
         socket.lineCount++;
-        console.log('Line count:', socket.lineCount, socket.uniqueMarkerCount);
+        //console.log('Line count:', socket.lineCount, socket.uniqueMarkerCount, data);
 
-        console.log('\x1b[36m%s\x1b[0m', data); // Print the output in cyan color
-        if (data.includes(UNIQUE_MARKER)) { // Check if the marker is present in the output
-            let markerIndex = data.indexOf(UNIQUE_MARKER);
-            let escapeSequence = "[1C";
-            data = data.replace(UNIQUE_MARKER, ''); // Remove the marker from the output
-            data = data.replace(escapeSequence, " ");
+        //console.log('\x1b[36m%s\x1b[0m', data); // Print the output in cyan color
+        if (data.includes(CMD_DONE_MARKER)) { // Check if the marker is present in the output
+            let markerIndex = data.indexOf(CMD_DONE_MARKER);
+
             if (socket.uniqueMarkerCount > 0) { // If the marker is present more than once, it means the output is complete
                 // When you detect the marker, emit a 'finished' event
                 console.log('Contains unique marker');
                 socket.ptyTerminal.cleanup();
-                socket.emit('terminal-output', { tokenResponse: data.slice(0, markerIndex), lccRunning: socket.ptyTerminal.lccRunning });
-                
+                sendPayload(socket, 'terminal-output', 'finished', data.slice(0, markerIndex));
                 return;
             }
             socket.uniqueMarkerCount++;
         }
-        if(socket.lineCount <= 1) {
-            console.log('Skipping the first line');
-            socket.processingData = false;
-            return;
-        }
-        socket.emit('terminal-output', { tokenResponse: data, lccRunning: socket.ptyTerminal.lccRunning });
+
+        sendPayload(socket, 'terminal-output', 'running', data);
         socket.processingData = false;
     });
 
@@ -143,14 +157,15 @@ function bindPtyTerminalWithSocket(socket){
     /* socket bindings */
     socket.on('input', (input) => {
         console.log(`Received input: ${input}`)
-        if(!socket.ptyTerminal.lccRunning || socket.ptyTerminal.killed)
+        if (!socket.ptyTerminal.lccRunning || socket.ptyTerminal.killed)
             return;
         socket.ptyTerminal.write(input + '\r'); // '\r' simulates the enter key in a terminal
     });
 
     socket.on('terminate-lcc', () => {
         socket.ptyTerminal.cleanup(); // sends ctrl-c to kill the process. keeps the terminal clean
-        socket.emit('terminate-lcc', { lccRunning: socket.ptyTerminal.lccRunning });
+        sendPayload(socket, 'terminate-lcc', 'terminated', null);
+        // socket.emit('terminate-lcc', { lccRunning: socket.ptyTerminal.lccRunning });
     });
 
     socket.on('execute', (data) => {
