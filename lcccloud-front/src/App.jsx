@@ -36,6 +36,7 @@ function App() {
     const [errorMessage, setErrorMessage] = useState("");
     const [userInput, setUserInput] = useState("");
     const runningProgramRef = useRef(false);
+    const [runningProgram, setRunningProgram] = useState(false);
 
     useEffect(() => {
         outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -52,6 +53,7 @@ function App() {
 
         socketRef.current.on('terminal-output', payload => {
             runningProgramRef.current = payload.lccRunning;
+            setRunningProgram(payload.lccRunning);
             setTerminalOutput(output => `${output}${payload.data}`);
 
             clearTimeout(tokenTimeout.current);
@@ -69,6 +71,7 @@ function App() {
         socketRef.current.on('terminate-lcc', payload => {
             console.log(`LCC Running: ${payload.lccRunning}`);
             runningProgramRef.current = payload.lccRunning;
+            setRunningProgram(payload.lccRunning);
             toast.success("Program stopped");
         });
 
@@ -76,6 +79,7 @@ function App() {
             // TODO: Handle error
             setErrorMessage(`Error: ${payload.data}`);
             runningProgramRef.current = false;
+            setRunningProgram(false);
             toast.error(`Error: ${payload.data}`);
         });
 
@@ -154,7 +158,7 @@ function App() {
                     <button
                         className="link pointer dim br-pill bn ph3 pv2 dib mr1"
                         onClick={handleRunStopButtonClick}>
-                        {runningProgramRef.current ? "Stop" : "Run"}
+                        {runningProgram ? "Stop" : "Run"}
                     </button>
                     <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleClearBtnClick}>Clear</button>
                 </section>
