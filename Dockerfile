@@ -13,6 +13,9 @@ WORKDIR /app
 # Copy your Node.js application files into the Docker image
 COPY . /app
 
+# Set NODE_ENV environment variable to production
+ENV NODE_ENV render
+
 # Install Node.js dependencies
 RUN npm install
 RUN npm run client_install
