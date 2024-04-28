@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
-import './App.css'
+import { useState, useRef, useEffect } from 'react';
+import { io } from 'socket.io-client';
+import './App.css';
 
 const defaultCodeString = `    mov r0, 5
     dout r0
@@ -14,8 +15,8 @@ const demoBprogram = `    lea r0, hello
 hello:  .string "Hello World!"`;
 
 function App() {
-
   const outputRef = useRef(null);
+  const socketRef = useRef(null);
 
   const [textAreaContent, setTextAreaContent] = useState(localStorage.getItem('textAreaContent') || defaultCodeString);
   const [output, setOutput] = useState(localStorage.getItem('output') || '');
@@ -23,25 +24,42 @@ function App() {
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    // Scroll to the bottom of the textarea whenever the output state changes
     outputRef.current.scrollTop = outputRef.current.scrollHeight;
-  }, [output]); // Add output as a dependency
+  }, [output]);
 
   useEffect(() => {
-    // Save the new values to localStorage whenever they change
     localStorage.setItem('fileNameContent', fileNameContent);
     localStorage.setItem('textAreaContent', textAreaContent);
     localStorage.setItem('output', output);
-  }, [fileNameContent, textAreaContent, output]); // Add fileNameContent, textAreaContent, and output as dependencies
+  }, [fileNameContent, textAreaContent, output]);
 
-  // Load Demo A
+  useEffect(() => {
+    // Connect to the server on component mount and clean up on unmount
+    socketRef.current = io(import.meta.env.VITE_LCC_API);
+
+    socketRef.current.on('output', data => {
+      setOutput(output => `${output}\n${data.data}`);
+    });
+
+    socketRef.current.on('error', data => {
+      setErrorMessage(`Error: ${data.data}`);
+    });
+
+    socketRef.current.on('completed', () => {
+      console.log('Execution completed.');
+    });
+
+    return () => {
+      socketRef.current.disconnect();
+    };
+  }, []);
+
   const handleDemoABtnClick = () => {
     setTextAreaContent(defaultCodeString);
     setFileNameContent("demoA.a");
     setErrorMessage('');
   }
 
-  // Load Demo B
   const handleDemoBBtnClick = () => {
     setTextAreaContent(demoBprogram);
     setFileNameContent("demoB.a");
@@ -52,69 +70,23 @@ function App() {
     setOutput('');
     setErrorMessage('');
   }
-  
-  /* Goal: Post to http://127.0.0.1:3000/lcc */
-  const handleButtonClick = async () => {
-    const unsupportedYet = ['din', 'sin', 'hin', 'ain'];
 
-    // TODO: remove this first check when the API is updated to support these instructions
-    if (unsupportedYet.some(word => textAreaContent.includes(word))) {
-      setErrorMessage('Error: LCC Cloud does not support the following instructions yet: ' + unsupportedYet.join(', '));
-      return;
+  const handleButtonClick = () => {
+    if (socketRef.current) {
+      socketRef.current.emit('execute', {
+        fileName: fileNameContent,
+        aCode: textAreaContent
+      });
     }
-
-    if (fileNameContent.trim() === "") {
-      setErrorMessage('Error: File name cannot be empty.');
-      return;
-    }
-
-    if (fileNameContent.lastIndexOf(".a") === -1 && fileNameContent.lastIndexOf(".bin") === -1) {
-      setErrorMessage('Error: File name must end with .a or .bin.');
-      return;
-    }
-
-    if((fileNameContent.lastIndexOf(".a" !== -1) && fileNameContent.length < 3) ||
-      (fileNameContent.lastIndexOf(".bin" !== -1) && fileNameContent.length < 5)) {
-      setErrorMessage('Error: File name is too short, please make it longer.');
-      return;
-    }
-
-    setErrorMessage('');
-
-    const response = await fetch(`${import.meta.env.VITE_LCC_API}/lcc`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        requestType: 'execute',
-        data: {
-          fileName: fileNameContent,
-          aCode: textAreaContent,
-          stdin: ""
-        }
-      })
-    });
-
-    const data = await response.json();
-    // console.log(data);
-    if (output.trim() !== "") {
-      setOutput(output => output + '\n' + data.output);
-    } else {
-      setOutput(data.output);
-    }
-
   };
-
 
   return (
     <section className="tc mr-auto ml-auto helvetica">
       <h1 className="f2 fw9 ma0 pt3 pb2">LCC Cloud</h1>
       <section>
-        <button className="link pointer dim br-pill bn ph3 pv2 dib mr1" id="demo-a-btn" onClick={handleDemoABtnClick}>Load Demo A</button>
-        <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" id="demo-b-btn" onClick={handleDemoBBtnClick}>Load Demo B</button>
+        <button className="link pointer dim br-pill bn ph3 pv2 dib mr1" onClick={handleDemoABtnClick}>Load Demo A</button>
+        <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleDemoBBtnClick}>Load Demo B</button>
       </section>
-
       <div className="pt2 measure-narrow flex mr-auto ml-auto">
         <label className="w4">File Name:</label>
         <input
@@ -127,7 +99,6 @@ function App() {
       <section className="measure-narrow mr-auto ml-auto">
         <p className="ma0 pt2 pb1 o-50">Enter your text program below:</p>
         <textarea
-          id="lcc-cloud-ide"
           rows="10"
           className="w-100 code v-align-top"
           onChange={e => setTextAreaContent(e.target.value)}
@@ -136,12 +107,11 @@ function App() {
         ></textarea>
       </section>
       <section className="pt2">
-        <button className="link pointer dim br-pill bn ph3 pv2 dib mr1" id="run-btn" onClick={handleButtonClick}>Run</button>
-        <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" id="clear-btn" onClick={handleClearBtnClick}>Clear</button>
+        <button className="link pointer dim br-pill bn ph3 pv2 dib mr1" onClick={handleButtonClick}>Run</button>
+        <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleClearBtnClick}>Clear</button>
       </section>
       <section className="measure-narrow mr-auto ml-auto pt2">
         <textarea
-          id="lcc-cloud-output"
           rows="10"
           className="w-100 code v-align-top"
           readOnly
@@ -150,13 +120,8 @@ function App() {
         ></textarea>
         <p className="ma0 pt2">{errorMessage}</p>
       </section>
-      {/*
-      <label>Standard Input:</label>
-      <input type="text" placeholder=""></input>
-      <input type="button" value="Enter"></input>
-      */}
     </section>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -3,13 +3,23 @@ const { spawn, exec } = require('child_process');
 const cors = require('cors');
 const path = require('path');
 const os = require('os');
+const http = require('http');
+const socketIo = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
+const io = new socketIo.Server(server, {
+    cors: {
+        origin: "*",
+    }
+});
+
 const port = process.env.PORT || 3000;
-app.use(cors({
-    origin: '*'  // This allows only requests from this origin
-    // or use '*' to allow all origins
-}));
+
+app.use(cors({origin: '*'}));
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dist')));
+
 // Function to change permissions
 function changePermissions(filePath, mode) {
     exec(`chmod ${mode} ${filePath}`, (error, stdout, stderr) => {
@@ -25,45 +35,11 @@ function changePermissions(filePath, mode) {
     });
 }
 
-let lccCommand;
+let lccCommand = './lcc';
 if (os.platform() === 'win32') {
     lccCommand = './lcc.exe';
 } else {
-    lccCommand = './lcc';
-    changePermissions(lccCommand, '755'); // Changing permissions to 'rwxr-xr-x'
-}
-
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'dist')));
-
-app.get('/test', (req, res) => {
-    res.send('Hello World!');
-});
-
-/*
-requestType: 'execute',
-data: {
-  fileName: 'helloworld.a',
-  aCode: textAreaContent
-}
-*/
-function executeLCC(fileName, callback){
-    //const lccProcess = spawn(lccCommand, arguments);
-    const lccProcess = spawn(lccCommand, [fileName]);
-
-    //lccProcess.stdin.write(data);
-    lccProcess.stdin.end();
-
-    lccProcess.stdout.on('data', (output) => {
-        // Handle the output from the lcc program
-        callback(output.toString());
-        
-    });
-
-    lccProcess.stderr.on('data', (error) => {
-        // Handle any errors from the lcc program
-        res.status(500).send(error.toString());
-    });
+    changePermissions(lccCommand, '755');
 }
 
 function writeAssemblyCodeToFile(fileName, aCode, callback) {
@@ -78,21 +54,43 @@ function writeAssemblyCodeToFile(fileName, aCode, callback) {
     });
 }
 
+function executeLCC(socket, fileName) {
+    const lccProcess = spawn(lccCommand, [fileName]);
+    
+    lccProcess.stdout.on('data', (data) => {
+        socket.emit('output', { data: data.toString() });
+    });
 
-app.post('/lcc', (req, res) => {
-    const { requestType, data } = req.body;
-    if (requestType == 'execute') {
+    lccProcess.stderr.on('data', (data) => {
+        socket.emit('error', { data: data.toString() });
+    });
+
+    lccProcess.on('close', (code) => {
+        socket.emit('completed', { code });
+    });
+
+    // Handling input from the client
+    socket.on('input', (input) => {
+        lccProcess.stdin.write(input);
+        lccProcess.stdin.end();
+    });
+}
+
+io.on('connection', (socket) => {
+    console.log('a user connected');
+    
+    socket.on('execute', (data) => {
         const { fileName, aCode } = data;
         writeAssemblyCodeToFile(fileName, aCode, () => {
-            executeLCC(fileName, (output) => {
-                const jsonData = { output: output };
-                res.json(jsonData);
-            });
+            executeLCC(socket, fileName);
         });
-    }
-    
+    });
+
+    socket.on('disconnect', () => {
+        console.log('user disconnected');
+    });
 });
 
-app.listen(port, () => {
+server.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
