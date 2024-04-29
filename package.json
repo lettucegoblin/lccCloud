@@ -8,7 +8,7 @@
     "server": "cd server && node index.js",
     "client_install": "cd lcccloud-front && npm install",
     "build_client_win": "cd lcccloud-front && npm run build && xcopy dist ..\\server\\dist /E /Y",
-    "build_client": "cd lcccloud-front && npm run build && cp -r dist ../server/dist"
+    "build_client": "cd lcccloud-front && npm run build && cp -r dist ../server"
   },
   "author": "",
   "license": "ISC",
