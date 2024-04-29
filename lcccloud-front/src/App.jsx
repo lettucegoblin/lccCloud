@@ -17,7 +17,6 @@ const demoBprogram = `    lea r0, ask
     sout r0
     lea r0, period
     sout r0
-    nl
     halt
 
 ask:  .string "What's your name? "
@@ -37,6 +36,7 @@ function App() {
     const [userInput, setUserInput] = useState("");
     const runningProgramRef = useRef(false);
     const [runningProgram, setRunningProgram] = useState(false);
+    const [isButtonDisabled, setIsButtonDisabled] = useState(false);
 
     useEffect(() => {
         outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -107,6 +107,34 @@ function App() {
 
     const handleRunStopButtonClick = () => {
         if (!runningProgramRef.current) {
+            setIsButtonDisabled(true);
+            setTimeout(() => setIsButtonDisabled(false), 500);
+
+            if(fileNameContent.trim() === "") {
+                toast.error("File name cannot be empty");
+                return;
+            }
+            
+            if (fileNameContent.length < 3 && fileNameContent[fileNameContent.length - 1] === 'a') {
+                toast.error("Assembly file name must be at least 3 characters long");
+                return;
+            }
+
+            if(fileNameContent.length < 5 && fileNameContent.indexOf(".bin") !== -1) {
+                toast.error("Binary file name must be at least 5 characters long");
+                return;
+            }
+
+            if(fileNameContent.indexOf(".a") === -1 && fileNameContent.indexOf(".bin") === -1) {
+                toast.error("File name must end with .a or .bin");
+                return;
+            }
+
+            if(ideContent.trim() === "") {
+                toast.error("Code cannot be empty");
+                return;
+            }
+
             if (socketRef.current) {
                 socketRef.current.emit('execute', {
                     fileName: fileNameContent,
@@ -133,11 +161,11 @@ function App() {
             <ToastContainer />
             <h1 className="f2 fw9 ma0 pt3 pb2">LCC Cloud</h1>
             <section>
-                <button className="link pointer dim br-pill bn ph3 pv2 dib mr1" onClick={handleDemoABtnClick}>Load Demo A</button>
-                <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleDemoBBtnClick}>Load Demo B</button>
+                <button className="link fw6 pointer dim br-pill bn ph3 pv2 dib mr1" onClick={handleDemoABtnClick}>Load Demo A</button>
+                <button className="link fw6 pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleDemoBBtnClick}>Load Demo B</button>
             </section>
             <div className="pt2 measure-narrow flex mr-auto ml-auto">
-                <label className="w4">File Name:</label>
+                <label className="w4 lh-copy">File Name:</label>
                 <input
                     type="text"
                     placeholder="test.a"
@@ -156,11 +184,12 @@ function App() {
                 ></textarea>
                 <section className="pt2">
                     <button
-                        className="link pointer dim br-pill bn ph3 pv2 dib mr1"
-                        onClick={handleRunStopButtonClick}>
+                        className="link fw6 pointer dim br-pill bn ph3 pv2 dib mr1"
+                        onClick={handleRunStopButtonClick}
+                        disabled={isButtonDisabled}>
                         {runningProgram ? "Stop" : "Run"}
                     </button>
-                    <button className="link pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleClearBtnClick}>Clear</button>
+                    <button className="link fw6 pointer dim br-pill bn ph3 pv2 dib ml1" onClick={handleClearBtnClick}>Clear</button>
                 </section>
                 <section className="measure-narrow mr-auto ml-auto pt2">
                     <textarea
@@ -180,7 +209,6 @@ function App() {
                         onKeyPress={handleUserInput}
                         ref={inputRef}
                     />
-                    <p className="ma0 pt2">{errorMessage}</p>
                 </section>
             </section>
         </section>
