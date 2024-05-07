@@ -175,11 +175,40 @@ function bindPtyTerminalWithSocket(socket) {
         });
     });
 }
+function createUser(username, callback) {
+    const dir = `${__dirname}/${username}`;
 
+    exec(`sudo useradd -m -d ${dir} ${username}`, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error creating user: ${error}`);
+            return;
+        }
+
+        exec(`sudo chown -R ${username}:${username} ${dir}`, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`Error changing owner: ${error}`);
+                return;
+            }
+
+            exec(`sudo chmod 700 ${dir}`, (error, stdout, stderr) => {
+                if (error) {
+                    console.error(`Error setting permissions: ${error}`);
+                    return;
+                }
+
+                if (callback) callback();
+            });
+        });
+    });
+}
 
 io.on('connection', (socket) => {
     console.log('a user connected');
     socket.uniqueId = Math.random().toString(36).substring(7); // TODO: replace with words/githubid
+    createUser(socket.uniqueId, () => {
+        console.log(`User ${socket.uniqueId} created`);
+    });
+    
     bindPtyTerminalWithSocket(socket);
 });
 
